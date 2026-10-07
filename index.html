@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B3D5C">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' data:; manifest-src 'self'; connect-src 'self'; frame-src https://script.google.com https://*.googleusercontent.com https://accounts.google.com; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta name="referrer" content="no-referrer">
 <title>Merchant Visit Activity</title>
-<!-- App icon: browser tab, and the Home Screen icon when staff choose "Add to Home Screen" -->
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -13,97 +15,27 @@
 <meta name="apple-mobile-web-app-title" content="Merchant Visit">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="application-name" content="Merchant Visit">
+<link rel="stylesheet" href="launcher.css">
 <!--
-  MERCHANT VISIT ACTIVITY - LAUNCHER PAGE
-  Shows the Apps Script form inside this page. Google's grey banner
-  ("This application was created by a Google Apps Script user", shown in the
-  phone's language) is then NOT shown at all.
-
-  ONLY CHANGE: paste your Web app link (ends with /exec) between the quotes below.
-
-  Keep these files next to this page (same folder):
-    manifest.webmanifest   and the   icons/   folder  (app icon for the Home Screen)
+  MERCHANT VISIT ACTIVITY - LAUNCHER PAGE (GitHub Pages edition)
+  Opens the Apps Script form inside this page (no Google banner) and passes Telegram's location to it.
+  The ONLY file to edit is config.js (the Web app link).
+  No inline scripts or styles: the Content-Security-Policy above allows only the files in this folder.
+  This repository is PUBLIC: never put the bot token, PINs, staff lists or merchant data here.
 -->
-<script>
-  var APP_URL = 'https://script.google.com/macros/s/AKfycbxpoRBvk_Z7CGXUlieoV_qdrnLNP31z9-SrbJh6wJvBw51PRJkbwwWRK48-CEZAGcsACA/exec';
-
-  // Keep what Telegram passed to this page before anything else can change it
-  var START_SEARCH = window.location.search || '';
-  var START_HASH = window.location.hash || '';
-</script>
+<script src="boot.js"></script>
+<script src="config.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  html, body { margin: 0; height: 100%; background: #F2F5F8; }
-  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-  .msg { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #17232F;
-    max-width: 420px; margin: 20vh auto 0; padding: 0 20px; text-align: center; }
-</style>
 </head>
 <body>
-<iframe id="app" title="Merchant Visit Activity" allow="camera *; geolocation *; clipboard-read *; clipboard-write *; web-share *"></iframe>
-<script>
-(function () {
-  var frame = document.getElementById('app');
-  if (!/^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+\/|macros\/)s\/[\w-]+\/exec$/.test(APP_URL)) {
-    frame.remove();
-    document.body.innerHTML = '<div class="msg"><b>Setup needed</b><br>Open this file and paste your Web app link (ending with /exec) into APP_URL.</div>';
-    return;
-  }
-  var hash = START_HASH;
-  var tg = window.Telegram && window.Telegram.WebApp;
-  try {
-    if (tg && tg.initData) {
-      // verified sign-in from Telegram, plus the Telegram version and platform (used for saving files)
-      hash = '#tgWebAppData=' + encodeURIComponent(tg.initData) +
-        '&tgWebAppVersion=' + encodeURIComponent(tg.version || '') +
-        '&tgWebAppPlatform=' + encodeURIComponent(tg.platform || '');
-    }
-    if (tg) { tg.ready(); tg.expand(); }
-  } catch (e) { /* not opened inside Telegram - the form still works with Staff ID + PIN */ }
-  frame.src = APP_URL + START_SEARCH + hash;
-
-  // "Use my location" (POS & Sound Box): the form runs inside Google's frames and cannot hear Telegram's
-  // answers, so it asks this page; this page asks Telegram (Telegram 8.0 or later) and passes the answer back.
-  var FORM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|script\.google\.com)$/;
-  var lm = tg && tg.LocationManager;
-  var canTg = false;
-  try { canTg = !!(lm && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0')); } catch (e) { canTg = false; }
-  window.addEventListener('message', function (ev) {
-    var m = ev.data;
-    if (!m || typeof m !== 'object' || m.mva !== 1 || !ev.source || !FORM_ORIGIN.test(ev.origin)) return;
-    var sent = false;
-    var reply = function (o) {
-      if (sent) return;
-      sent = true; o.mva = 1; o.id = m.id; o.type = m.type;
-      try { ev.source.postMessage(o, ev.origin); } catch (e) { /* form closed */ }
-    };
-    if (m.type === 'hello') return reply({ location: canTg, launcher: 2 });
-    if (m.type === 'location') {
-      if (!canTg) return reply({ error: 'NO_TG' });
-      var ask = function () {
-        if (sent) return;
-        try {
-          if (!lm.isLocationAvailable) return reply({ error: 'NO_TG' });      // e.g. Telegram Desktop
-          lm.getLocation(function (d) {                                       // Telegram asks the user the first time
-            if (d && typeof d.latitude === 'number') return reply({ lat: d.latitude, lng: d.longitude, acc: d.horizontal_accuracy });
-            reply({ error: lm.isAccessRequested && !lm.isAccessGranted ? 'DENIED' : 'NO_FIX' });
-          });
-        } catch (e) { reply({ error: 'NO_TG' }); }
-      };
-      try {
-        if (lm.isInited) ask();
-        else { setTimeout(function () { if (!lm.isInited) reply({ error: 'NO_TG' }); }, 8000); lm.init(ask); }   // no answer: the phone's GPS is used
-      } catch (e) { reply({ error: 'NO_TG' }); }
-      return;
-    }
-    if (m.type === 'location_settings') {                                   // "Open settings" in the form
-      try { lm.openSettings(); }
-      catch (e) { try { window.Telegram.WebView.postEvent('web_app_open_location_settings', false); } catch (e2) { /* not available */ } }
-    }
-  });
-})();
-</script>
+<div class="ld" id="ld" aria-hidden="true"><span class="sp"></span></div>
+<iframe id="app" title="Merchant Visit Activity" allow="geolocation *; clipboard-read *; clipboard-write *; web-share *"></iframe>
+<div class="nt hidden" id="nt" role="alert">
+  <b id="ntT">Taking longer than usual</b>
+  <span id="ntS">The form is still loading. Check the internet connection, then try again.</span>
+  <button type="button" id="ntBtn">Try again</button>
+</div>
+<script src="launcher.js"></script>
 </body>
 </html>
