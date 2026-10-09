@@ -1,0 +1,32 @@
+Barcode reader for the Merchant Visit Activity app (POS Battery Replacement)
+==========================================================================
+zxing_reader.js and zxing_reader.wasm are unchanged copies of zxing-wasm 3.1.3
+(https://github.com/Sec-ant/zxing-wasm), built from zxing-cpp
+(https://github.com/zxing-cpp/zxing-cpp, Apache License 2.0).
+The app checks both files against fixed SHA-256 fingerprints before using them:
+  zxing_reader.js    98e44c8063b9aa75b31562f6b64b2cead420842ac3e4f57a791c01cd8f450a7a
+  zxing_reader.wasm  2ebda08a93eea3efcd8399cda6b276e6a0b1de4fec60b4d8988a047de4c6d1ba
+Do not edit these files: a changed file is refused by the app.
+
+zxing-wasm licence (MIT):
+MIT License
+
+Copyright (c) 2023 Ze-Zheng Wu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
