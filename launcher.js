@@ -37,7 +37,7 @@
         '&tgWebAppVersion=' + encodeURIComponent(tg.version || '') +
         '&tgWebAppPlatform=' + encodeURIComponent(tg.platform || '');
     }
-    if (tg) { tg.ready(); tg.expand(); }
+    if (tg) { tg.ready(); tg.expand(); try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) { /* older Telegram */ } }   // (v11) dragging the form never pulls the app down
     try { var last = JSON.parse(localStorage.getItem('mva_bars') || 'null'); if (last) setBars(last.bar, last.bg); else setBars('#0B3D5C', '#F2F5F8'); } catch (e) { setBars('#0B3D5C', '#F2F5F8'); }
   } catch (e) { /* not opened inside Telegram - the form still works with Staff ID + PIN */ }
   var SRC = APP_URL + search + hash;
@@ -46,7 +46,7 @@
   function setBars(bar, bg) {
     var HEX = /^#[0-9A-Fa-f]{6}$/;
     if (!HEX.test(bar || '') || !HEX.test(bg || '')) return;
-    document.documentElement.style.background = bar; document.body.style.background = bar;   // (v8) anything above the form is the header colour
+    document.documentElement.style.background = bg; document.body.style.background = bg;     // (v11) behind the form: the page colour (the form's own header covers the clock area)
     var lb = document.getElementById('ldbg'); if (lb) lb.style.background = bg;      // the loading screen in the form's colour
     var lum = parseInt(bg.substr(1, 2), 16) * .299 + parseInt(bg.substr(3, 2), 16) * .587 + parseInt(bg.substr(5, 2), 16) * .114;
     document.documentElement.classList.toggle('dk', lum < 100);       // the loading logo's text follows Light / Dark
@@ -170,7 +170,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 10, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 11, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
