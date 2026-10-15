@@ -37,7 +37,7 @@
         '&tgWebAppVersion=' + encodeURIComponent(tg.version || '') +
         '&tgWebAppPlatform=' + encodeURIComponent(tg.platform || '');
     }
-    if (tg) { tg.ready(); tg.expand(); try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) { /* older Telegram */ } }   // (v11) dragging the form never pulls the app down
+    if (tg) { tg.ready(); tg.expand(); }
     try { var last = JSON.parse(localStorage.getItem('mva_bars') || 'null'); if (last) setBars(last.bar, last.bg); else setBars('#0B3D5C', '#F2F5F8'); } catch (e) { setBars('#0B3D5C', '#F2F5F8'); }
   } catch (e) { /* not opened inside Telegram - the form still works with Staff ID + PIN */ }
   var SRC = APP_URL + search + hash;
@@ -170,7 +170,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 11, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 12, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
