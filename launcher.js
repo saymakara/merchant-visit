@@ -2,7 +2,9 @@
    1. Opens the Apps Script form (config.js) inside this page with Telegram's verified sign-in data.
    2. Watches the loading: a slow or lost connection shows "Try again" instead of a blank screen.
    3. "Use my location" (POS & Sound Box): the form runs inside Google's frames and cannot hear Telegram,
-      so it asks this page; this page asks Telegram (8.0 or later) and passes the answer back. */
+      so it asks this page; this page asks Telegram (8.0 or later) and passes the answer back.
+   4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows.
+   5. While the form loads: the app logo builds itself and breathes (no plain spinner), then fades into the form. */
 (function () {
   'use strict';
   var cfg = window.MV_CONFIG || {}, start = window.MV_START || { search: '', hash: '' };
@@ -34,8 +36,23 @@
         '&tgWebAppPlatform=' + encodeURIComponent(tg.platform || '');
     }
     if (tg) { tg.ready(); tg.expand(); }
+    try { var last = JSON.parse(localStorage.getItem('mva_bars') || 'null'); if (last) setBars(last.bar, last.bg); else setBars('#0B3D5C', '#F2F5F8'); } catch (e) { setBars('#0B3D5C', '#F2F5F8'); }
   } catch (e) { /* not opened inside Telegram - the form still works with Staff ID + PIN */ }
   var SRC = APP_URL + search + hash;
+
+  // ---- Telegram's top bar (clock area) and background in the form's colours: navy in Light mode, graphite in Dark mode
+  function setBars(bar, bg) {
+    var HEX = /^#[0-9A-Fa-f]{6}$/;
+    if (!HEX.test(bar || '') || !HEX.test(bg || '')) return;
+    document.documentElement.style.background = bg; document.body.style.background = bg;
+    var lum = parseInt(bg.substr(1, 2), 16) * .299 + parseInt(bg.substr(3, 2), 16) * .587 + parseInt(bg.substr(5, 2), 16) * .114;
+    document.documentElement.classList.toggle('dk', lum < 100);       // the loading logo's text follows Light / Dark
+    try { localStorage.setItem('mva_bars', JSON.stringify({ bar: bar, bg: bg })); } catch (e) { /* private mode */ }
+    if (!tg) return;
+    try { if (tg.setHeaderColor) tg.setHeaderColor(bar); } catch (e) { /* older Telegram */ }
+    try { if (tg.setBackgroundColor) tg.setBackgroundColor(bg); } catch (e) { /* older Telegram */ }
+    try { if (tg.setBottomBarColor && tg.isVersionAtLeast && tg.isVersionAtLeast('7.10')) tg.setBottomBarColor(bg); } catch (e) { /* older Telegram */ }
+  }
 
   // ---- loading watch: no blank screen when the connection is slow or lost
   var loaded = false, timer = 0, SLOW_MS = Number(cfg.SLOW_MS) || 20000;
@@ -55,7 +72,8 @@
   frame.addEventListener('load', function () {
     if (!frame.src || frame.src === 'about:blank') return;
     loaded = true; clearTimeout(timer); notice(null);
-    document.getElementById('ld').className = 'hidden';
+    var ld = document.getElementById('ld');                             // the logo fades out softly into the form (never a cut)
+    if (ld && ld.className.indexOf('hidden') < 0) { ld.className = 'ld out'; setTimeout(function () { ld.className = 'hidden'; }, 380); }
   });
   document.getElementById('ntBtn').addEventListener('click', function () { notice(null); open(); });
   window.addEventListener('offline', function () { if (!loaded) notice('offline'); });
@@ -77,7 +95,7 @@
       sent = true; o.mva = 1; o.id = m.id; o.type = m.type;
       try { ev.source.postMessage(o, ev.origin); } catch (e) { /* form closed */ }
     };
-    if (m.type === 'hello') return reply({ location: canTg, launcher: 4 });
+    if (m.type === 'hello') return reply({ location: canTg, launcher: 6 });
     if (m.type === 'location') {
       if (!canTg) return reply({ error: 'NO_TG' });
       var ask = function () {
@@ -96,6 +114,7 @@
       } catch (e) { reply({ error: 'NO_TG' }); }
       return;
     }
+    if (m.type === 'theme') { setBars(m.bar, m.bg); return; }          // the form's Light / Dark mode: Telegram's top bar follows
     if (m.type === 'location_settings') {                                   // "Open settings" in the form
       try { lm.openSettings(); }
       catch (e) { try { window.Telegram.WebView.postEvent('web_app_open_location_settings', false); } catch (e2) { /* not available */ } }
