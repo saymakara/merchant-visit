@@ -3,8 +3,8 @@
    2. Watches the loading: a slow or lost connection shows "Try again" instead of a blank screen.
    3. "Use my location" (POS & Sound Box): the form runs inside Google's frames and cannot hear Telegram,
       so it asks this page; this page asks Telegram (8.0 or later) and passes the answer back.
-   4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows; in
-      Telegram's full-screen mode the form's navy header grows to cover the clock area too.
+   4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows; wherever
+      the page runs under the clock (Telegram full-screen, Safari, Home Screen) the form's navy header grows to cover it.
    5. While the form loads: the sign-in page's own logo breathes softly (no plain spinner), then glides into the sign-in
       page's logo when the form is ready (an older form: it fades out). */
 (function () {
@@ -134,16 +134,23 @@
       return probe.getBoundingClientRect().height;
     } catch (e) { return -1; }
   }
+  // (v10) every way the page can end up under the clock: Telegram full-screen, Safari's edge-to-edge page (iOS 26),
+  // a Home Screen app. Normal Telegram (its own top bar above the page): the page is not under the clock → 0.
   function topInset() {
     try {
-      if (!tg || !tg.isFullscreen) return 0;
-      var a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {}, e = envTop();
-      var clock = e >= 0 && CSS.supports && CSS.supports('top', 'env(safe-area-inset-top)') ? e : (Number(a.top) || 0);
-      return Math.round(clock + (Number(c.top) || 0));               // + Telegram's own buttons row
+      var e = Math.max(0, envTop());
+      if (tg && tg.isFullscreen) {
+        var a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {};
+        return Math.round(Math.max(e, Number(a.top) || 0) + (Number(c.top) || 0));   // the clock + Telegram's own buttons row
+      }
+      return Math.round(e);
     } catch (e2) { return 0; }
   }
   function pushInsets() { if (appWin) try { appWin.postMessage({ mva: 1, type: 'insets', top: topInset() }, appOrigin); } catch (e) { /* form closed */ } }
   try { if (tg && tg.onEvent) ['fullscreenChanged', 'safeAreaChanged', 'contentSafeAreaChanged'].forEach(function (e) { tg.onEvent(e, pushInsets); }); } catch (e) { /* older Telegram */ }
+  var lastTop = -1, rsz = 0;                                             // (v10) the phone turned, Safari's bars changed
+  function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { var t = topInset(); if (t !== lastTop) { lastTop = t; pushInsets(); } }, 120); }
+  window.addEventListener('resize', insetsChanged); window.addEventListener('orientationchange', insetsChanged);
 
   // ---- Telegram location for the form
   var FORM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|script\.google\.com)$/;
@@ -162,7 +169,8 @@
     if (m.type === 'hello') {
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
-      return reply({ location: canTg, launcher: 9, morph: !handed, top: topInset() });
+      lastTop = topInset();
+      return reply({ location: canTg, launcher: 10, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
