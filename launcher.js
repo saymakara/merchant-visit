@@ -3,8 +3,9 @@
    2. Watches the loading: a slow or lost connection shows "Try again" instead of a blank screen.
    3. "Use my location" (POS & Sound Box): the form runs inside Google's frames and cannot hear Telegram,
       so it asks this page; this page asks Telegram (8.0 or later) and passes the answer back.
-   4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows.
-   5. While the form loads: the app logo builds itself and breathes (no plain spinner), then morphs into the sign-in
+   4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows; in
+      Telegram's full-screen mode the form's navy header grows to cover the clock area too.
+   5. While the form loads: the sign-in page's own logo breathes softly (no plain spinner), then glides into the sign-in
       page's logo when the form is ready (an older form: it fades out). */
 (function () {
   'use strict';
@@ -45,7 +46,7 @@
   function setBars(bar, bg) {
     var HEX = /^#[0-9A-Fa-f]{6}$/;
     if (!HEX.test(bar || '') || !HEX.test(bg || '')) return;
-    document.documentElement.style.background = bg; document.body.style.background = bg;
+    document.documentElement.style.background = bar; document.body.style.background = bar;   // (v8) anything above the form is the header colour
     var lb = document.getElementById('ldbg'); if (lb) lb.style.background = bg;      // the loading screen in the form's colour
     var lum = parseInt(bg.substr(1, 2), 16) * .299 + parseInt(bg.substr(3, 2), 16) * .587 + parseInt(bg.substr(5, 2), 16) * .114;
     document.documentElement.classList.toggle('dk', lum < 100);       // the loading logo's text follows Light / Dark
@@ -74,29 +75,39 @@
   // ---- the hand-over: the loading logo stays above the form until the form says it is ready, then morphs into the
   // sign-in page's own logo (same place, same size) while the page appears around it. An older form (no "ready"),
   // or no answer in time: the logo simply fades out as before – it can never stay stuck on the screen.
-  var T0 = Date.now(), MIN_MS = 1350, MORPH_MS = 680, handed = false, morphApp = false, fallTimer = 0;
+  var T0 = Date.now(), MIN_MS = 1500, MORPH_MS = 760, handed = false, morphApp = false, fallTimer = 0;
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function fadeOut() {
     if (handed) return; handed = true; clearTimeout(fallTimer);
     var ld = document.getElementById('ld');
     if (ld && ld.className.indexOf('hidden') < 0) { ld.className = 'ld out'; setTimeout(function () { ld.className = 'hidden'; }, 380); }
   }
+  // (v9) the breathing settles back to rest while the logo glides, so it arrives exactly as the sign-in logo looks
+  function settle(el, ms) {
+    if (!el || !el.animate) return;
+    var cs = getComputedStyle(el), tf = cs.transform && cs.transform !== 'none' ? cs.transform : 'matrix(1,0,0,1,0,0)', op = cs.opacity;
+    el.style.animation = 'none'; el.style.transform = tf; el.style.opacity = op;
+    el.animate([{ transform: tf, opacity: op }, { transform: 'matrix(1,0,0,1,0,0)', opacity: 1 }], { duration: ms, easing: 'cubic-bezier(.33,0,.2,1)', fill: 'forwards' });
+  }
   function morphTo(r, vw, vh) {                                          // r: the sign-in logo's box in the form's window
     if (handed) return 0; handed = true; clearTimeout(fallTimer);
     var ld = document.getElementById('ld'), lg = document.getElementById('lg'), bg = document.getElementById('ldbg');
-    var wait = Math.max(0, T0 + MIN_MS - Date.now());                     // the logo finishes building first
+    var wait = Math.max(0, T0 + MIN_MS - Date.now());                     // the logo has faded in and taken a breath first
     if (!r || !lg || !lg.animate || reduced()) { setTimeout(fadeOut2, wait); return wait; }
     setTimeout(function () {
+      ['tile', 'h1', 'h2'].forEach(function (id) { settle(document.getElementById(id), MORPH_MS); });
+      lg.style.animation = 'none';
       var a = lg.getBoundingClientRect(), offY = (window.innerHeight - (vh || window.innerHeight)), offX = (window.innerWidth - (vw || window.innerWidth)) / 2;
       var tx = r.x + offX + r.w / 2 - (a.left + a.width / 2), ty = r.y + offY + r.h / 2 - (a.top + a.height / 2), k = r.w / a.width;
+      if (!(k > .5 && k < 2)) k = 1;
       ld.className = 'ld morph';
       lg.animate([{ transform: 'translate3d(0,0,0) scale(1)' }, { transform: 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + k + ')' }],
-        { duration: MORPH_MS, easing: 'cubic-bezier(.32,.72,0,1)', fill: 'forwards' });
-      bg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MORPH_MS - 160, delay: 120, easing: 'cubic-bezier(.25,1,.5,1)', fill: 'forwards' });
-      setTimeout(function () {                                           // landed: the form's own logo takes over (no seam)
-        lg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'linear', fill: 'forwards' });
-        setTimeout(function () { ld.className = 'hidden'; }, 170);
-      }, MORPH_MS);
+        { duration: MORPH_MS, easing: 'cubic-bezier(.45,.05,.2,1)', fill: 'forwards' });
+      bg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MORPH_MS - 120, delay: 80, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+      setTimeout(function () {                                           // landed: the form's own logo appears underneath (identical),
+        lg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'linear', fill: 'forwards' });   // then this one leaves
+        setTimeout(function () { ld.className = 'hidden'; }, 150);
+      }, MORPH_MS + 180);
     }, wait);
     return wait;
     function fadeOut2() { handed = false; fadeOut(); }
@@ -112,6 +123,27 @@
   window.addEventListener('online', function () { if (!loaded) { notice(null); open(); } });
   if (navigator.onLine === false) notice('offline');
   open();
+
+  // ---- (v8) Telegram full-screen: the form runs under the clock and Telegram's buttons – tell it how high they are,
+  // so its navy header covers them (normal mode: 0, nothing changes)
+  var appWin = null, appOrigin = '';
+  var probe = null;
+  function envTop() {                                                    // how far this page really runs under the clock (0 when iOS already keeps it below)
+    try {
+      if (!probe) { probe = document.createElement('div'); probe.style.position = 'fixed'; probe.style.top = '0'; probe.style.left = '0'; probe.style.width = '1px'; probe.style.visibility = 'hidden'; probe.style.pointerEvents = 'none'; probe.style.height = 'env(safe-area-inset-top, 0px)'; document.body.appendChild(probe); }
+      return probe.getBoundingClientRect().height;
+    } catch (e) { return -1; }
+  }
+  function topInset() {
+    try {
+      if (!tg || !tg.isFullscreen) return 0;
+      var a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {}, e = envTop();
+      var clock = e >= 0 && CSS.supports && CSS.supports('top', 'env(safe-area-inset-top)') ? e : (Number(a.top) || 0);
+      return Math.round(clock + (Number(c.top) || 0));               // + Telegram's own buttons row
+    } catch (e2) { return 0; }
+  }
+  function pushInsets() { if (appWin) try { appWin.postMessage({ mva: 1, type: 'insets', top: topInset() }, appOrigin); } catch (e) { /* form closed */ } }
+  try { if (tg && tg.onEvent) ['fullscreenChanged', 'safeAreaChanged', 'contentSafeAreaChanged'].forEach(function (e) { tg.onEvent(e, pushInsets); }); } catch (e) { /* older Telegram */ }
 
   // ---- Telegram location for the form
   var FORM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|script\.google\.com)$/;
@@ -129,7 +161,8 @@
     };
     if (m.type === 'hello') {
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
-      return reply({ location: canTg, launcher: 7, morph: !handed });
+      appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
+      return reply({ location: canTg, launcher: 9, morph: !handed, top: topInset() });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
