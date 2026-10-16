@@ -170,7 +170,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 12, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 14, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
