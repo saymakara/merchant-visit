@@ -75,7 +75,8 @@
   // ---- the hand-over: the loading logo stays above the form until the form says it is ready, then morphs into the
   // sign-in page's own logo (same place, same size) while the page appears around it. An older form (no "ready"),
   // or no answer in time: the logo simply fades out as before – it can never stay stuck on the screen.
-  var T0 = Date.now(), MIN_MS = 1500, MORPH_MS = 760, handed = false, morphApp = false, fallTimer = 0;
+  var T0 = Date.now(), MIN_MS = 650, MORPH_MS = 560,   // (v15) quicker: the logo only waits to finish fading in
+      handed = false, morphApp = false, fallTimer = 0;
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function fadeOut() {
     if (handed) return; handed = true; clearTimeout(fallTimer);
@@ -107,7 +108,7 @@
       setTimeout(function () {                                           // landed: the form's own logo appears underneath (identical),
         lg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'linear', fill: 'forwards' });   // then this one leaves
         setTimeout(function () { ld.className = 'hidden'; }, 150);
-      }, MORPH_MS + 180);
+      }, MORPH_MS + 70);
     }, wait);
     return wait;
     function fadeOut2() { handed = false; fadeOut(); }
@@ -170,7 +171,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 14, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 15, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
