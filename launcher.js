@@ -6,7 +6,9 @@
    4. Light / Dark mode: the form tells this page its colours, and Telegram's top bar (the clock area) follows; wherever
       the page runs under the clock (Telegram full-screen, Safari, Home Screen) the form's navy header grows to cover it.
    5. While the form loads: the sign-in page's own logo breathes softly (no plain spinner), then glides into the sign-in
-      page's logo when the form is ready (an older form: it fades out). */
+      page's logo when the form is ready (an older form: it fades out).
+   6. (v16) Saves this page on the phone (sw.js) so the next open shows the logo at once, even on a weak connection.
+      Only this page's own files and Telegram's script are kept; the form itself (Google) is never stored. */
 (function () {
   'use strict';
   var cfg = window.MV_CONFIG || {}, start = window.MV_START || { search: '', hash: '' };
@@ -75,7 +77,7 @@
   // ---- the hand-over: the loading logo stays above the form until the form says it is ready, then morphs into the
   // sign-in page's own logo (same place, same size) while the page appears around it. An older form (no "ready"),
   // or no answer in time: the logo simply fades out as before – it can never stay stuck on the screen.
-  var T0 = Date.now(), MIN_MS = 650, MORPH_MS = 560,   // (v15) quicker: the logo only waits to finish fading in
+  var T0 = Date.now(), MIN_MS = 380, MORPH_MS = 460,   // (v16) quicker: the logo only waits to finish springing in
       handed = false, morphApp = false, fallTimer = 0;
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function fadeOut() {
@@ -171,7 +173,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 15, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 16, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
@@ -203,4 +205,12 @@
       catch (e) { try { window.Telegram.WebView.postEvent('web_app_open_location_settings', false); } catch (e2) { /* not available */ } }
     }
   });
+
+  // ---- (v16) keep this page on the phone for a faster next open (Android, desktop browsers; where Telegram does not
+  // allow it, e.g. some iPhone versions, nothing changes). Registered after the form has started loading, never before.
+  try {
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      setTimeout(function () { navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () { /* not allowed here */ }); }, 1500);
+    }
+  } catch (e) { /* not available */ }
 })();

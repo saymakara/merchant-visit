@@ -1,0 +1,23 @@
+MERCHANT VISIT LAUNCHER - UPDATE v16 (29 Oct 2026)
+
+WHAT CHANGED
+1. Faster, premium first-open logo: appears on the very first frame (no blank wait for telegram.org), springs in,
+   the badge tick draws itself, a soft sheen passes over the tile and a teal arc runs along the halo while the form loads.
+   The hand-over into the sign-in logo is quicker (waits 0.38 s instead of 0.65 s; glides in 0.46 s instead of 0.56 s).
+2. Phone cache (new file sw.js): the launcher page, its icons and Telegram's script are kept on the phone, so the
+   next open paints the logo almost at once, even on a weak connection. The form itself (Google Apps Script),
+   sign-in data, staff and merchant data are never kept by this file.
+
+HOW TO UPLOAD (GitHub > saymakara/merchant-visit > Add file > Upload files)
+  Upload: index.html, launcher.css, launcher.js, sw.js
+  Do NOT upload or replace config.js (keep your own copy with your Web app link).
+  Leave every other file and the "reader" folder as they are.
+  Wait 1-2 minutes for GitHub Pages, then open the Mini App twice (the first open installs the cache).
+
+AFTER ANY FUTURE CHANGE TO THESE FILES
+  Open sw.js and raise VERSION by one (mv-launcher-16 -> mv-launcher-17) so every phone drops its old copy.
+  Without that, phones still pick up the change, one open later.
+
+NOTE
+  Android Telegram and phone browsers support this cache. Some iPhone Telegram versions do not allow it;
+  there the launcher simply works as before.
