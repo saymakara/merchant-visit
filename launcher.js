@@ -56,7 +56,8 @@
     if (!tg) return;
     try { if (tg.setHeaderColor) tg.setHeaderColor(bar); } catch (e) { /* older Telegram */ }
     try { if (tg.setBackgroundColor) tg.setBackgroundColor(bg); } catch (e) { /* older Telegram */ }
-    try { if (tg.setBottomBarColor && tg.isVersionAtLeast && tg.isVersionAtLeast('7.10')) tg.setBottomBarColor(bg); } catch (e) { /* older Telegram */ }
+    var btm = lum < 100 ? '#15191E' : '#FFFFFF';
+    try { if (tg.setBottomBarColor && tg.isVersionAtLeast && tg.isVersionAtLeast('7.10')) tg.setBottomBarColor(btm); } catch (e) { /* older Telegram */ }
   }
 
   // ---- loading watch: no blank screen when the connection is slow or lost
@@ -142,7 +143,8 @@
   function topInset() {
     try {
       var e = Math.max(0, envTop());
-      if (tg && tg.isFullscreen) {
+      if (tg) {
+        if (!tg.isFullscreen) return 0;
         var a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {};
         return Math.round(Math.max(e, Number(a.top) || 0) + (Number(c.top) || 0));   // the clock + Telegram's own buttons row
       }
@@ -173,7 +175,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 17, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 18, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;

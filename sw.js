@@ -1,11 +1,11 @@
-/* MERCHANT VISIT ACTIVITY - LAUNCHER CACHE (v17)
+/* MERCHANT VISIT ACTIVITY - LAUNCHER CACHE (v18)
    Keeps this launcher page on the phone so the next open shows the logo at once, even on a weak connection.
    - Kept: only this page's own files (below) and Telegram's script. Each open shows the kept copy at once and quietly
      fetches a fresh copy for the next open ("stale-while-revalidate").
    - Never kept: the form itself (Google Apps Script), sign-in data, staff or merchant data, the "reader" folder, anything else.
    - After changing any file on GitHub: raise VERSION by one, so every phone drops its old copy on its next open. */
 'use strict';
-var VERSION = 'mv-launcher-17';
+var VERSION = 'mv-launcher-18';
 var SHELL = ['./', 'index.html', 'launcher.css', 'launcher.js', 'boot.js', 'config.js', 'manifest.webmanifest',
   'icons/favicon.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png', 'icons/icon-192.png'];
 var TG = 'https://telegram.org/js/telegram-web-app.js';
