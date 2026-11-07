@@ -9,6 +9,8 @@
       page's logo when the form is ready (an older form: it fades out).
    6. (v16) Saves this page on the phone (sw.js) so the next open shows the logo at once, even on a weak connection.
       Only this page's own files and Telegram's script are kept; the form itself (Google) is never stored.
+   8. (v20) Home Screen app (iPhone): the page runs under the clock and the form's header colour covers it (Light navy,
+      Dark graphite), like a native app; before v20 the clock area stayed light grey.
    7. (v19) One sign-in a day: some phones wipe the form's own storage when Telegram is cleared from the background, and
       the team had to type the PIN again. The form hands its day session to this page, which keeps it for the same
       Telegram account only (on this phone and in Telegram's Cloud Storage of this bot) and gives it back on the next
@@ -147,7 +149,7 @@
   function topInset() {
     try {
       var e = Math.max(0, envTop());
-      if (tg) {
+      if (tg && tg.initData) {                                           // (v20) really inside Telegram (its script also loads in Safari / Home Screen)
         if (!tg.isFullscreen) return 0;
         var a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {};
         return Math.round(Math.max(e, Number(a.top) || 0) + (Number(c.top) || 0));   // the clock + Telegram's own buttons row
@@ -214,7 +216,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 19, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 20, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;

@@ -7,6 +7,9 @@ iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; displa
 /* (v7) the loading logo stays above the form until the form is ready, then glides into the sign-in page's logo */
 .ld { z-index: 3; }
 .ldbg { position: absolute; inset: 0; background: #F2F5F8; }
+/* (v20) while the form loads, the clock area already has the header colour (0 high where the page is not under the clock) */
+.ld::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: #0B3D5C; z-index: 1; }
+html.dk .ld::before { background: #12151A; }
 html.dk .ldbg { background: #0B0D11; }
 /* (v16) exactly the sign-in page's logo: 96 px tile, 26 px corners, the same shadow and the same two halo rings.
    Premium and quick: it springs in on the very first frame (no blank wait), the badge's tick draws itself, a soft light
