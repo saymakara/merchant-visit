@@ -9,6 +9,8 @@
       page's logo when the form is ready (an older form: it fades out).
    6. (v16) Saves this page on the phone (sw.js) so the next open shows the logo at once, even on a weak connection.
       Only this page's own files and Telegram's script are kept; the form itself (Google) is never stored.
+   9. (v21) Home Screen app: the form fills the whole screen (no empty band under the bottom bar), the bottom bar keeps clear
+      of the home indicator, and the clock area has a solid header colour (no grey fade on iOS 26).
    8. (v20) Home Screen app (iPhone): the page runs under the clock and the form's header colour covers it (Light navy,
       Dark graphite), like a native app; before v20 the clock area stayed light grey.
    7. (v19) One sign-in a day: some phones wipe the form's own storage when Telegram is cleared from the background, and
@@ -49,12 +51,18 @@
     try { var last = JSON.parse(localStorage.getItem('mva_bars') || 'null'); if (last) setBars(last.bar, last.bg); else setBars('#0B3D5C', '#F2F5F8'); } catch (e) { setBars('#0B3D5C', '#F2F5F8'); }
   } catch (e) { /* not opened inside Telegram - the form still works with Staff ID + PIN */ }
   var SRC = APP_URL + search + hash;
+  // (v21) opened from the iPhone / Android Home Screen
+  var STANDALONE = false;
+  try { STANDALONE = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; } catch (e) { STANDALONE = false; }
+  if (STANDALONE && !(tg && tg.initData)) document.documentElement.classList.add('standalone');
 
   // ---- Telegram's top bar (clock area) and background in the form's colours: navy in Light mode, graphite in Dark mode
   function setBars(bar, bg) {
     var HEX = /^#[0-9A-Fa-f]{6}$/;
     if (!HEX.test(bar || '') || !HEX.test(bg || '')) return;
-    document.documentElement.style.background = bg; document.body.style.background = bg;     // (v11) behind the form: the page colour (the form's own header covers the clock area)
+    document.documentElement.style.background = bar; document.body.style.background = bg;   // (v21) the top of the page in the header colour: iPhone tints the clock area from it (no grey fade)
+    var sb = document.getElementById('sbar'); if (sb) sb.style.background = bar;
+    try { var tm = document.querySelector('meta[name="theme-color"]'); if (tm) tm.setAttribute('content', bar); } catch (e) { /* keep */ }
     var lb = document.getElementById('ldbg'); if (lb) lb.style.background = bg;      // the loading screen in the form's colour
     var lum = parseInt(bg.substr(1, 2), 16) * .299 + parseInt(bg.substr(3, 2), 16) * .587 + parseInt(bg.substr(5, 2), 16) * .114;
     document.documentElement.classList.toggle('dk', lum < 100);       // the loading logo's text follows Light / Dark
@@ -157,10 +165,30 @@
       return Math.round(e);
     } catch (e2) { return 0; }
   }
-  function pushInsets() { if (appWin) try { appWin.postMessage({ mva: 1, type: 'insets', top: topInset() }, appOrigin); } catch (e) { /* form closed */ } }
+  // (v21) the home-indicator area: the form (inside Google's frames) cannot measure it itself, so it is passed on.
+  // Inside Telegram: 0 (Telegram keeps its own spacing, as before).
+  var probeB = null;
+  function bottomInset() {
+    try {
+      if (tg && tg.initData) return 0;
+      if (!probeB) { probeB = document.createElement('div'); probeB.style.position = 'fixed'; probeB.style.bottom = '0'; probeB.style.left = '0'; probeB.style.width = '1px'; probeB.style.visibility = 'hidden'; probeB.style.pointerEvents = 'none'; probeB.style.height = 'env(safe-area-inset-bottom, 0px)'; document.body.appendChild(probeB); }
+      return Math.round(Math.max(0, probeB.getBoundingClientRect().height));
+    } catch (e) { return 0; }
+  }
+  // (v21) Home Screen app: never shorter than the screen (some iPhones size "100vh" one clock-area short as well)
+  function fitFrame() {
+    if (!STANDALONE || (tg && tg.initData)) return;
+    try {
+      var want = Math.max(window.innerHeight, (screen && screen.height && window.matchMedia('(orientation: portrait)').matches) ? screen.height : 0);
+      if (frame.parentNode && frame.getBoundingClientRect().height < want - 1) { frame.style.height = want + 'px'; var ld = document.getElementById('ld'); if (ld) ld.style.height = want + 'px'; }
+    } catch (e) { /* keep the CSS size */ }
+  }
+  fitFrame();
+  function pushInsets() { if (appWin) try { appWin.postMessage({ mva: 1, type: 'insets', top: topInset(), bottom: bottomInset() }, appOrigin); } catch (e) { /* form closed */ } }
   try { if (tg && tg.onEvent) ['fullscreenChanged', 'safeAreaChanged', 'contentSafeAreaChanged'].forEach(function (e) { tg.onEvent(e, pushInsets); }); } catch (e) { /* older Telegram */ }
   var lastTop = -1, rsz = 0;                                             // (v10) the phone turned, Safari's bars changed
-  function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { var t = topInset(); if (t !== lastTop) { lastTop = t; pushInsets(); } }, 120); }
+  var lastBottom = -1;
+  function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { frame.style.height = ''; fitFrame(); var t = topInset(), bt = bottomInset(); if (t !== lastTop || bt !== lastBottom) { lastTop = t; lastBottom = bt; pushInsets(); } }, 120); }
   window.addEventListener('resize', insetsChanged); window.addEventListener('orientationchange', insetsChanged);
 
   // ---- (v19) the form's day session, kept for the same Telegram account only. Nothing else is stored.
@@ -215,8 +243,8 @@
     if (m.type === 'hello') {
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
-      lastTop = topInset();
-      return reply({ location: canTg, launcher: 20, morph: !handed, top: lastTop });
+      lastTop = topInset(); lastBottom = bottomInset();
+      return reply({ location: canTg, launcher: 21, morph: !handed, top: lastTop, bottom: lastBottom });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
@@ -245,7 +273,8 @@
     if (m.type === 'session_save') { sessSave(m.t, m.exp); return reply({ ok: true }); }   // (v19)
     if (m.type === 'session_get') { sessGet(function (t) { reply({ t: t || '' }); }); return; }
     if (m.type === 'session_clear') { sessClear(); return reply({ ok: true }); }
-    if (m.type === 'theme') { setBars(m.bar, m.bg); return; }          // the form's Light / Dark mode: Telegram's top bar follows
+    if (m.type === 'theme') { setBars(m.bar, m.bg); return; }
+    if (m.type === 'sbar') { var sbe = document.getElementById('sbar'); if (sbe) sbe.style.opacity = m.show === false ? '0' : '1'; return; }   // (v21) camera / map full screen: their own top          // the form's Light / Dark mode: Telegram's top bar follows
     if (m.type === 'location_settings') {                                   // "Open settings" in the form
       try { lm.openSettings(); }
       catch (e) { try { window.Telegram.WebView.postEvent('web_app_open_location_settings', false); } catch (e2) { /* not available */ } }
