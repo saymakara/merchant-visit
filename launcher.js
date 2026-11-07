@@ -8,7 +8,11 @@
    5. While the form loads: the sign-in page's own logo breathes softly (no plain spinner), then glides into the sign-in
       page's logo when the form is ready (an older form: it fades out).
    6. (v16) Saves this page on the phone (sw.js) so the next open shows the logo at once, even on a weak connection.
-      Only this page's own files and Telegram's script are kept; the form itself (Google) is never stored. */
+      Only this page's own files and Telegram's script are kept; the form itself (Google) is never stored.
+   7. (v19) One sign-in a day: some phones wipe the form's own storage when Telegram is cleared from the background, and
+      the team had to type the PIN again. The form hands its day session to this page, which keeps it for the same
+      Telegram account only (on this phone and in Telegram's Cloud Storage of this bot) and gives it back on the next
+      open. The session ends at midnight (Phnom Penh) on the server whatever happens here; Sign out removes it. */
 (function () {
   'use strict';
   var cfg = window.MV_CONFIG || {}, start = window.MV_START || { search: '', hash: '' };
@@ -157,6 +161,41 @@
   function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { var t = topInset(); if (t !== lastTop) { lastTop = t; pushInsets(); } }, 120); }
   window.addEventListener('resize', insetsChanged); window.addEventListener('orientationchange', insetsChanged);
 
+  // ---- (v19) the form's day session, kept for the same Telegram account only. Nothing else is stored.
+  var SESS_KEY = 'mva_sess', TOKEN_RE = /^[A-Za-z0-9_=-]{8,400}\.[A-Za-z0-9_=+\/-]{8,200}$/;
+  var cloud = null;
+  try { if (tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9')) cloud = tg.CloudStorage; } catch (e) { cloud = null; }
+  function tgUid() { try { var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u && u.id ? String(u.id) : ''; } catch (e) { return ''; } }
+  function sessValid(o) {
+    return !!o && typeof o.t === 'string' && TOKEN_RE.test(o.t) && Number(o.exp) > Date.now() &&
+      Number(o.exp) - Date.now() < 26 * 3600000 && String(o.uid || '') === tgUid();   // (another Telegram account on this phone: not given)
+  }
+  function sessSave(t, exp) {
+    var o = { t: String(t || ''), exp: Number(exp) || 0, uid: tgUid() };
+    if (!sessValid(o)) return;
+    var v = JSON.stringify(o);
+    try { localStorage.setItem(SESS_KEY, v); } catch (e) { /* private mode */ }
+    try { if (cloud && o.uid) cloud.setItem(SESS_KEY, v, function () {}); } catch (e) { /* older Telegram */ }
+  }
+  function sessClear() {
+    try { localStorage.removeItem(SESS_KEY); } catch (e) { /* private mode */ }
+    try { if (cloud) cloud.removeItem(SESS_KEY, function () {}); } catch (e) { /* older Telegram */ }
+  }
+  function sessGet(cb) {
+    var o = null;
+    try { o = JSON.parse(localStorage.getItem(SESS_KEY) || 'null'); } catch (e) { o = null; }
+    if (sessValid(o)) return cb(o.t);
+    if (!cloud || !tgUid()) return cb('');
+    var done = false, fin = function (t) { if (!done) { done = true; cb(t); } };
+    setTimeout(function () { fin(''); }, 1500);                           // Telegram slow to answer: the sign-in page as before
+    try {
+      cloud.getItem(SESS_KEY, function (err, v) {
+        var c = null; try { c = err ? null : JSON.parse(v || 'null'); } catch (e) { c = null; }
+        if (sessValid(c)) { try { localStorage.setItem(SESS_KEY, v); } catch (e) { /* private mode */ } fin(c.t); } else fin('');
+      });
+    } catch (e) { fin(''); }
+  }
+
   // ---- Telegram location for the form
   var FORM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|script\.google\.com)$/;
   var lm = tg && tg.LocationManager;
@@ -175,7 +214,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 18, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 19, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
@@ -201,6 +240,9 @@
       } catch (e) { reply({ error: 'NO_TG' }); }
       return;
     }
+    if (m.type === 'session_save') { sessSave(m.t, m.exp); return reply({ ok: true }); }   // (v19)
+    if (m.type === 'session_get') { sessGet(function (t) { reply({ t: t || '' }); }); return; }
+    if (m.type === 'session_clear') { sessClear(); return reply({ ok: true }); }
     if (m.type === 'theme') { setBars(m.bar, m.bg); return; }          // the form's Light / Dark mode: Telegram's top bar follows
     if (m.type === 'location_settings') {                                   // "Open settings" in the form
       try { lm.openSettings(); }
