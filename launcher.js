@@ -87,8 +87,16 @@
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function fadeOut() {
     if (handed) return; handed = true; clearTimeout(fallTimer);
-    var ld = document.getElementById('ld');
-    if (ld && ld.className.indexOf('hidden') < 0) { ld.className = 'ld out'; setTimeout(function () { ld.className = 'hidden'; }, 380); }
+    var ld = document.getElementById('ld'), lg = document.getElementById('lg');
+    if (!ld || ld.className.indexOf('hidden') >= 0) return;
+    // (v20) the logo leaves FIRST (a quick shrink and fade), then the background clears: the logo never hangs half-faded
+    // over the form (it looked like a flicker when the form opens straight away, without the sign-in page)
+    if (lg && lg.animate && !reduced()) {
+      var cs = getComputedStyle(lg), tf = cs.transform && cs.transform !== 'none' ? cs.transform : 'matrix(1,0,0,1,0,0)';
+      lg.style.animation = 'none';
+      lg.animate([{ transform: tf, opacity: cs.opacity }, { transform: 'scale(.82)', opacity: 0 }], { duration: 180, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+      setTimeout(function () { ld.className = 'ld out'; setTimeout(function () { ld.className = 'hidden'; }, 380); }, 150);
+    } else { ld.className = 'ld out'; setTimeout(function () { ld.className = 'hidden'; }, 380); }
   }
   // (v9) the breathing settles back to rest while the logo glides, so it arrives exactly as the sign-in logo looks
   function settle(el, ms) {
@@ -214,7 +222,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 19, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 20, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
