@@ -169,6 +169,29 @@
   function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { var t = topInset(); if (t !== lastTop) { lastTop = t; pushInsets(); } }, 120); }
   window.addEventListener('resize', insetsChanged); window.addEventListener('orientationchange', insetsChanged);
 
+  // ---- (v21) after the phone turns, iPhone can keep the form's frame tapping at its old place for a few seconds (the
+  // bottom bar is drawn but does not answer). When the turn has settled the frame is nudged so its tap area is
+  // rebuilt, and a tap that lands on this page over the bar area (instead of in the frame) is passed to the form.
+  var turnT = [];
+  function renewFrame() {
+    var f = document.getElementById('app'); if (!f) return;
+    f.style.height = 'calc(100% - 1px)'; f.style.transform = 'translateZ(0)';
+    requestAnimationFrame(function () { requestAnimationFrame(function () { f.style.height = ''; f.style.transform = ''; }); });
+  }
+  function turned() { turnT.forEach(clearTimeout); turnT = [250, 900].map(function (ms) { return setTimeout(renewFrame, ms); }); }
+  window.addEventListener('orientationchange', turned);
+  var lastW = window.innerWidth;
+  window.addEventListener('resize', function () { if (window.innerWidth !== lastW) { lastW = window.innerWidth; turned(); } });
+  try { if (tg && tg.onEvent) tg.onEvent('viewportChanged', function (e) { if (e && e.isStateStable) turned(); }); } catch (e) { /* older Telegram */ }
+  var t0 = null;
+  document.addEventListener('touchstart', function (e) { var t = e.touches[0]; t0 = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null; }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    var t = e.changedTouches[0], s = t0; t0 = null;
+    if (!s || !t || !appWin || Date.now() - s.at > 600 || Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) return;
+    if (t.clientY < window.innerHeight - 110) return;                     // only the bottom bar's area
+    try { appWin.postMessage({ mva: 1, type: 'tap_at', x: t.clientX, y: t.clientY }, appOrigin); } catch (x) { /* form closed */ }
+  }, { passive: true });
+
   // ---- (v19) the form's day session, kept for the same Telegram account only. Nothing else is stored.
   var SESS_KEY = 'mva_sess', TOKEN_RE = /^[A-Za-z0-9_=-]{8,400}\.[A-Za-z0-9_=+\/-]{8,200}$/;
   var cloud = null;
@@ -222,7 +245,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 20, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 21, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
