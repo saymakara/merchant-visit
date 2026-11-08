@@ -28,6 +28,15 @@
     document.body.appendChild(d);
     return;
   }
+  // (v22) keep this outer shell locked to the visible screen (100dvh, zero scroll): on iPhone Safari / Home Screen, turning
+  // landscape and back to portrait could leave the outer page scrolled or taller than Safari's bottom bar, shifting touches
+  // against the form's fixed bottom bar by ~40-50 px.
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overscrollBehavior = 'none';
+  frame.style.height = '100%';
+  frame.style.height = '100dvh';
+
   // only the parts of the address the form needs: ?t=… (one-time link) and Telegram's data
   var search = '';
   try {
@@ -169,19 +178,50 @@
   function insetsChanged() { clearTimeout(rsz); rsz = setTimeout(function () { var t = topInset(); if (t !== lastTop) { lastTop = t; pushInsets(); } }, 120); }
   window.addEventListener('resize', insetsChanged); window.addEventListener('orientationchange', insetsChanged);
 
-  // ---- (v21) after the phone turns, iPhone can keep the form's frame tapping at its old place for a few seconds (the
-  // bottom bar is drawn but does not answer). When the turn has settled the frame is nudged so its tap area is
-  // rebuilt, and a tap that lands on this page over the bar area (instead of in the frame) is passed to the form.
-  var turnT = [];
+  // ---- (v21/v22) after turning landscape and back to portrait, iPhone Safari / Home Screen can leave the outer page scrolled
+  // or keep the frame's touch map offset above the bottom bar until both dimensions are flushed after the bars settle.
+  var turnT = [], vvT = 0;
+  function zeroScroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); }
   function renewFrame() {
+    zeroScroll();
     var f = document.getElementById('app'); if (!f) return;
-    f.style.height = 'calc(100% - 1px)'; f.style.transform = 'translateZ(0)';
-    requestAnimationFrame(function () { requestAnimationFrame(function () { f.style.height = ''; f.style.transform = ''; }); });
+    f.style.width = 'calc(100% - 1px)'; f.style.height = 'calc(100% - 1px)'; f.style.height = 'calc(100dvh - 1px)';
+    void f.offsetHeight;
+    requestAnimationFrame(function () {
+      zeroScroll();
+      f.style.width = ''; f.style.height = '100%'; f.style.height = '100dvh';
+      void f.offsetHeight;
+      if (appWin) try { appWin.postMessage({ mva: 1, type: 'frame_settled' }, appOrigin); } catch (e) { /* form closed */ }
+    });
   }
-  function turned() { turnT.forEach(clearTimeout); turnT = [250, 900].map(function (ms) { return setTimeout(renewFrame, ms); }); }
+  function turned() {
+    zeroScroll();
+    turnT.forEach(clearTimeout);
+    turnT = [140, 480, 960].map(function (ms) { return setTimeout(renewFrame, ms); });
+  }
   window.addEventListener('orientationchange', turned);
-  var lastW = window.innerWidth;
-  window.addEventListener('resize', function () { if (window.innerWidth !== lastW) { lastW = window.innerWidth; turned(); } });
+  var lastW = window.innerWidth, lastH = window.innerHeight;
+  window.addEventListener('resize', function () {
+    zeroScroll();
+    if (window.innerWidth !== lastW) { lastW = window.innerWidth; lastH = window.innerHeight; turned(); }
+    else if (Math.abs(window.innerHeight - lastH) > 2 && Math.abs(window.innerHeight - lastH) < 140) { lastH = window.innerHeight; clearTimeout(vvT); vvT = setTimeout(renewFrame, 120); }
+    else { lastH = window.innerHeight; }
+  });
+  if (window.visualViewport) {
+    var vvw = Math.round(visualViewport.width), vvh = Math.round(visualViewport.height);
+    visualViewport.addEventListener('resize', function () {
+      var w = Math.round(visualViewport.width), h = Math.round(visualViewport.height);
+      if (w !== vvw) { vvw = w; vvh = h; turned(); }
+      else if (Math.abs(h - vvh) > 2 && Math.abs(h - vvh) < 140) { vvh = h; clearTimeout(vvT); vvT = setTimeout(renewFrame, 120); }
+      else { vvh = h; }
+    });
+    visualViewport.addEventListener('scroll', function () {
+      if (visualViewport.scale === 1 && Math.abs(visualViewport.height - window.innerHeight) < 120) zeroScroll();
+    });
+  }
+  window.addEventListener('scroll', function () {
+    if (!window.visualViewport || Math.abs(visualViewport.height - window.innerHeight) < 120) zeroScroll();
+  }, { passive: true });
   try { if (tg && tg.onEvent) tg.onEvent('viewportChanged', function (e) { if (e && e.isStateStable) turned(); }); } catch (e) { /* older Telegram */ }
   var t0 = null;
   document.addEventListener('touchstart', function (e) { var t = e.touches[0]; t0 = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null; }, { passive: true });
@@ -189,7 +229,8 @@
     var t = e.changedTouches[0], s = t0; t0 = null;
     if (!s || !t || !appWin || Date.now() - s.at > 600 || Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) return;
     if (t.clientY < window.innerHeight - 110) return;                     // only the bottom bar's area
-    try { appWin.postMessage({ mva: 1, type: 'tap_at', x: t.clientX, y: t.clientY }, appOrigin); } catch (x) { /* form closed */ }
+    var fr = frame.getBoundingClientRect();
+    try { appWin.postMessage({ mva: 1, type: 'tap_at', x: t.clientX - fr.left, y: t.clientY - fr.top }, appOrigin); } catch (x) { /* form closed */ }
   }, { passive: true });
 
   // ---- (v19) the form's day session, kept for the same Telegram account only. Nothing else is stored.
@@ -245,7 +286,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 21, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 22, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;

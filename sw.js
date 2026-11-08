@@ -5,7 +5,7 @@
    - Never kept: the form itself (Google Apps Script), sign-in data, staff or merchant data, the "reader" folder, anything else.
    - After changing any file on GitHub: raise VERSION by one, so every phone drops its old copy on its next open. */
 'use strict';
-var VERSION = 'mv-launcher-21';   // (v21) the form's frame renewed after the phone turns
+var VERSION = 'mv-launcher-22';   // (v22) outer scroll locked + 100dvh frame flushed after Safari / Home Screen rotation
 var SHELL = ['./', 'index.html', 'launcher.css', 'launcher.js', 'boot.js', 'config.js', 'manifest.webmanifest',
   'icons/favicon.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png', 'icons/icon-192.png'];
 var TG = 'https://telegram.org/js/telegram-web-app.js';
