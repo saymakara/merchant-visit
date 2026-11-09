@@ -283,7 +283,7 @@
       try { ev.source.postMessage(o, ev.origin); } catch (e) { /* form closed */ }
     };
     if (m.type === 'hello') {
-      if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 9000); }   // never stuck: 9 s at most
+      if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 2500); }   // (v22/3.96.2) never stuck: 2.5 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
       return reply({ location: canTg, launcher: 22, morph: !handed, top: lastTop });
