@@ -5,7 +5,7 @@
    - Never kept: the form itself (Google Apps Script), sign-in data, staff or merchant data, the "reader" folder, anything else.
    - After changing any file on GitHub: raise VERSION by one, so every phone drops its old copy on its next open. */
 'use strict';
-var VERSION = 'mv-launcher-23';   // (v23) new Web app link in config.js (the old deployment was archived)
+var VERSION = 'mv-launcher-24';   // (v24) KHQR failed attempts / wrong scans waiting to be sent: a copy kept here; (v23)   // (v23) new Web app link in config.js (the old deployment was archived)
 var SHELL = ['./', 'index.html', 'launcher.css', 'launcher.js', 'boot.js', 'config.js', 'manifest.webmanifest',
   'icons/favicon.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png', 'icons/icon-192.png'];
 var TG = 'https://telegram.org/js/telegram-web-app.js';

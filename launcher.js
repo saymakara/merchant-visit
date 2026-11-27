@@ -12,7 +12,12 @@
    7. (v19) One sign-in a day: some phones wipe the form's own storage when Telegram is cleared from the background, and
       the team had to type the PIN again. The form hands its day session to this page, which keeps it for the same
       Telegram account only (on this phone and in Telegram's Cloud Storage of this bot) and gives it back on the next
-      open. The session ends at midnight (Phnom Penh) on the server whatever happens here; Sign out removes it. */
+      open. The session ends at midnight (Phnom Penh) on the server whatever happens here; Sign out removes it.
+   8. (v24) The same for KHQR failed attempts and wrong scans that are still WAITING to be sent (no internet): on iPhone,
+      clearing Telegram from the background wiped them from the form's storage before they reached the portal. The form
+      hands this page a copy of the waiting list (per staff member, for the same Telegram account only) and takes it back
+      on the next open; the copy is emptied once everything is sent. Kept on this phone and in Telegram's Cloud Storage
+      of this bot. Only that list: MIDs and the merchant name read from the QR, staff, times - no photos, no PIN. */
 (function () {
   'use strict';
   var cfg = window.MV_CONFIG || {}, start = window.MV_START || { search: '', hash: '' };
@@ -268,6 +273,53 @@
     } catch (e) { fin(''); }
   }
 
+  // ---- (v24) KHQR failed attempts / wrong scans still waiting to be sent: a copy, given back on the next open
+  var KEEP_RE = /^qrlog_[A-Za-z0-9_-]{1,40}$/, KEEP_MAX = 200000, CLOUD_PART = 4000, CLOUD_PARTS = 12;
+  function keepGetLocal(k) {
+    try { var o = JSON.parse(localStorage.getItem('mva_keep_' + k) || 'null'); return o && typeof o.v === 'string' && String(o.uid || '') === tgUid() ? o.v : ''; }
+    catch (e) { return ''; }
+  }
+  function cloudKeep(k, v) {                                            // in parts (Telegram keeps at most 4,096 characters a value)
+    if (!cloud || !tgUid()) return;
+    try {
+      var n = v && v !== '[]' ? Math.ceil(v.length / CLOUD_PART) : 0, keys = [];
+      if (n > CLOUD_PARTS) n = 0;                                          // too long for the cloud copy: this phone's copy only
+      for (var i = 0; i < n; i++) cloud.setItem(k + '_' + i, v.slice(i * CLOUD_PART, (i + 1) * CLOUD_PART), function () {});
+      cloud.setItem(k + '_n', String(n), function () {});
+      for (var j = n; j < CLOUD_PARTS; j++) keys.push(k + '_' + j);
+      cloud.removeItems(keys, function () {});
+    } catch (e) { /* older Telegram, no connection */ }
+  }
+  function keepSet(k, v) {
+    if (!KEEP_RE.test(String(k)) || typeof v !== 'string' || v.length > KEEP_MAX) return false;
+    try {
+      if (!v || v === '[]') localStorage.removeItem('mva_keep_' + k);
+      else localStorage.setItem('mva_keep_' + k, JSON.stringify({ uid: tgUid(), v: v, at: Date.now() }));
+    } catch (e) { /* storage full / private mode: the cloud copy still */ }
+    cloudKeep(k, v);
+    return true;
+  }
+  function keepGet(k, cb) {
+    if (!KEEP_RE.test(String(k))) return cb('');
+    var local = keepGetLocal(k);
+    if (local || !cloud || !tgUid()) return cb(local);
+    var done = false, fin = function (v) { if (!done) { done = true; cb(v); } };
+    setTimeout(function () { fin(''); }, 1500);                           // Telegram slow to answer: the form goes on without it
+    try {
+      cloud.getItem(k + '_n', function (err, nv) {
+        var n = err ? 0 : Number(nv) || 0, keys = [];
+        if (!(n > 0 && n <= CLOUD_PARTS)) return fin('');
+        for (var i = 0; i < n; i++) keys.push(k + '_' + i);
+        cloud.getItems(keys, function (err2, vals) {
+          if (err2 || !vals) return fin('');
+          var v = keys.map(function (x) { return vals[x] || ''; }).join('');
+          try { JSON.parse(v); } catch (e) { return fin(''); }
+          fin(v);
+        });
+      });
+    } catch (e) { fin(''); }
+  }
+
   // ---- Telegram location for the form
   var FORM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|script\.google\.com)$/;
   var lm = tg && tg.LocationManager;
@@ -286,7 +338,7 @@
       if (m.morph) { morphApp = true; clearTimeout(fallTimer); fallTimer = setTimeout(fadeOut, 2500); }   // (v22/3.96.2) never stuck: 2.5 s at most
       appWin = ev.source; appOrigin = ev.origin;                           // (v8) for Telegram full-screen updates
       lastTop = topInset();
-      return reply({ location: canTg, launcher: 22, morph: !handed, top: lastTop });
+      return reply({ location: canTg, launcher: 24, morph: !handed, top: lastTop });
     }
     if (m.type === 'ready') {                                             // the form is on screen: hand over
       var box = m.logo && typeof m.logo.x === 'number' ? m.logo : null;
@@ -315,6 +367,8 @@
     if (m.type === 'session_save') { sessSave(m.t, m.exp); return reply({ ok: true }); }   // (v19)
     if (m.type === 'session_get') { sessGet(function (t) { reply({ t: t || '' }); }); return; }
     if (m.type === 'session_clear') { sessClear(); return reply({ ok: true }); }
+    if (m.type === 'keep_set') { return reply({ ok: keepSet(m.k, m.v) }); }                     // (v24)
+    if (m.type === 'keep_get') { keepGet(m.k, function (v) { reply({ v: v || '' }); }); return; }
     if (m.type === 'theme') { setBars(m.bar, m.bg); return; }          // the form's Light / Dark mode: Telegram's top bar follows
     if (m.type === 'location_settings') {                                   // "Open settings" in the form
       try { lm.openSettings(); }
